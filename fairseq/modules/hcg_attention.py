@@ -20,10 +20,21 @@ class HCGAttention(nn.Module):
 
         self.attention: torch.Tensor = None
 
-    def forward(self, q_hidden_inputs: torch.Tensor, k_hidden_inputs: torch.Tensor, v_hidden_inputs: torch.Tensor, mask=None, save_attention=False):
+    def forward(self, q_hidden_inputs: torch.Tensor, k_hidden_inputs: torch.Tensor, v_hidden_inputs: torch.Tensor, attn_mask=None, key_padding_mask=None, save_attention=False):
         """
         {kqv}_hidden_inputs: batch_size, seq_len, model_hid_dim
         """
+
+
+        q_hidden_inputs = q_hidden_inputs.permute((1, 0, 2))
+        k_hidden_inputs = k_hidden_inputs.permute((1, 0, 2))
+        v_hidden_inputs = v_hidden_inputs.permute((1, 0, 2))
+
+        if key_padding_mask is not None:
+            key_padding_mask = torch.repeat_interleave(torch.unsqueeze(key_padding_mask, -1), k_hidden_inputs.shape[-1], dim=-1)
+            # print("key_padding_mask.shape", key_padding_mask.shape)
+            # print("k_hidden_inputs.shape", k_hidden_inputs.shape)
+            k_hidden_inputs = k_hidden_inputs.masked_fill(key_padding_mask, self.neg_inf)
 
         queries: torch.Tensor = self.query_weights(q_hidden_inputs) # bs, q_seq_len, q_dim
         keys: torch.Tensor = self.key_weights(k_hidden_inputs)      # bs, k_seq_len, k_dim
@@ -38,19 +49,23 @@ class HCGAttention(nn.Module):
         # print("v_seq_len", v_seq_len)
         assert k_seq_len == v_seq_len, f'k_seq_len{k_seq_len} == v_seq_len{v_seq_len}'
 
+
         keys_transposed = keys.permute(0, 2, 1) # bs, k_dim, k_seq_len
+
+        # print("queries.shape", queries.shape, "keys_transposed.shape", keys_transposed.shape)
         scaled_kv = torch.matmul(queries, keys_transposed) / self.kq_dim_root # # bs, q_seq_len, k_seq_len
         assert scaled_kv.size() == torch.Size((batch_size, q_seq_len, k_seq_len))
 
-        if mask is not None:
+        if attn_mask is not None:
+            attn_mask = torch.unsqueeze(attn_mask.permute((1, 0)), -1)
             # print("scaled_kv.size()", scaled_kv.size())
-            # print("mask.size()", mask.size())
+            # print("mask.size()", attn_mask.size())
             # scaled_kv.masked_fill_(mask == False, self.neg_inf)
 
             # todo какая тут маска? правильно ли знак стоит?
             # должны ли маски для паддингов и для аттеншна одновременно накладываться?
             # scaled_kv.masked_fill_(mask.permute((1, 0)), self.neg_inf)
-            scaled_kv.masked_fill_(mask, self.neg_inf)
+            scaled_kv.masked_fill_(attn_mask, self.neg_inf)
 
 
         scaled_kv = self.softmax(scaled_kv)
@@ -58,7 +73,9 @@ class HCGAttention(nn.Module):
         if save_attention:
             self.attention = scaled_kv
 
-        return torch.matmul(scaled_kv, values) # bs, q_seq_len, v_dim
+        result = torch.matmul(scaled_kv, values) # bs, q_seq_len, v_dim
+
+        return result.permute((1, 0, 2))
 
 
 class MultiHeadHCGAttention(nn.Module):
@@ -86,34 +103,51 @@ class MultiHeadHCGAttention(nn.Module):
 
         self.heads_weights = nn.Linear(num_heads * value_dim, hidden_dim)
 
+    # todo костыль!
+    def _get_input_buffer(self, *args, **kwargs):
+        return None
+
     @property
     def num_heads(self):
         return len(self.attention_heads)
+
+    HAS_UNKNOWN_ARGS = False
 
     def forward(self, query=None,
                 key=None,
                 value=None,
                 key_padding_mask=None,
                 need_weights=False,
-                attn_mask=None,):
+                attn_mask=None,
+                # self_attn_mask=None,
+                self_attn_padding_mask=None,
+                **kwargs):
+        if len(kwargs) > 0 and not self.HAS_UNKNOWN_ARGS:
+            self.HAS_UNKNOWN_ARGS = True
+            print("unknown args:", kwargs)
+
 
         q_hidden_inputs: torch.Tensor = query
         k_hidden_inputs: torch.Tensor = key
         v_hidden_inputs: torch.Tensor = value
 
-        mask = attn_mask
-        if key_padding_mask is not None:
-            if mask is not None:
-                mask = mask & key_padding_mask
-            else:
-                # print("key_padding_mask", key_padding_mask.shape)
-                mask = key_padding_mask.permute((1, 0))
-                # что тут произошло?
-                mask = torch.repeat_interleave(torch.unsqueeze(mask, -1), mask.shape[1], dim=-1)
+        # mask = attn_mask
+        # if mask is None:
+        #     mask = self_attn_padding_mask
+
+        # if key_padding_mask is not None:
+        #     if mask is not None:
+        #         mask = mask & key_padding_mask
+        #     else:
+        #         # print("key_padding_mask", key_padding_mask.shape)
+        #         mask = key_padding_mask # .permute((1, 0))
+        #         # что тут произошло?
+        #         mask = torch.repeat_interleave(torch.unsqueeze(mask, -1), mask.shape[1], dim=-1)
 
         attention_outputs = []
         for attention in self.attention_heads:
-            attention_output = attention(q_hidden_inputs, k_hidden_inputs, v_hidden_inputs, mask=mask)
+            # print("q", q_hidden_inputs.shape, "k", k_hidden_inputs.shape, "v", v_hidden_inputs.shape)
+            attention_output = attention(q_hidden_inputs, k_hidden_inputs, v_hidden_inputs, key_padding_mask=key_padding_mask, attn_mask=attn_mask)
             attention_outputs.append(attention_output)
 
         if len(self.hard_concrete_gates) > 0:
@@ -138,15 +172,3 @@ class SimpleMultiHeadHCGAttention(MultiHeadHCGAttention):
 
     def forward(self, hidden_inputs, mask=None):
         return super(SimpleMultiHeadHCGAttention, self).forward(q_hidden_inputs=hidden_inputs, k_hidden_inputs=hidden_inputs, v_hidden_inputs=hidden_inputs, mask=mask)
-
-
-class AddAndNorm(nn.Module):
-    def __init__(self, hidden_dim: int, sublayer: nn.Module):
-        super(AddAndNorm, self).__init__()
-        self.norm = nn.LayerNorm(hidden_dim)
-        self.sublayer = sublayer
-        return
-
-    def forward(self, inputs, **kwargs):
-        return self.norm(inputs + self.sublayer(inputs, **kwargs))
-
