@@ -1,3 +1,8 @@
+examples/translation/
+data-stt/
+checkpoints*/
+pip-wheel-metadata/
+
 # JetBrains PyCharm IDE
 .idea/
 

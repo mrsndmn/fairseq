@@ -11,6 +11,12 @@ from fairseq.models.transformer import (
     TransformerEncoder,
     TransformerModel,
 )
+
+from fairseq.distributed import fsdp_wrap
+from fairseq.modules import transformer_layer
+from fairseq.modules.checkpoint_activations import checkpoint_wrapper
+
+from fairseq.modules.hcg_attention import MultiHeadHCGAttention
 from fairseq.modules.transformer_sentence_encoder import init_bert_params
 
 
@@ -154,6 +160,12 @@ class FairseqNATModel(TransformerModel):
         return NotImplementedError
 
 
+class TransformerEncoderLayerHCG(transformer_layer.TransformerEncoderLayerBase):
+    def build_self_attention(self, embed_dim, cfg):
+        print("TransformerEncoderLayerHCG: build_self_attention")
+        return MultiHeadHCGAttention(embed_dim, cfg.encoder.attention_heads)
+
+
 class FairseqNATEncoder(TransformerEncoder):
     def __init__(self, args, dictionary, embed_tokens):
         super().__init__(args, dictionary, embed_tokens)
@@ -163,8 +175,47 @@ class FairseqNATEncoder(TransformerEncoder):
     def forward(self, *args, **kwargs):
         return super().forward(*args, **kwargs)
 
+    def build_encoder_layer(self, cfg):
+        layer = TransformerEncoderLayerHCG(cfg)
+        checkpoint = cfg.checkpoint_activations
+        if checkpoint:
+            offload_to_cpu = cfg.offload_activations
+            layer = checkpoint_wrapper(layer, offload_to_cpu=offload_to_cpu)
+        # if we are checkpointing, enforce that FSDP always wraps the
+        # checkpointed layer, regardless of layer size
+        min_params_to_wrap = cfg.min_params_to_wrap if not checkpoint else 0
+        layer = fsdp_wrap(layer, min_num_params=min_params_to_wrap)
+        return layer
+
+class TransformerDecoderLayerHCG(transformer_layer.TransformerDecoderLayerBase):
+    def build_self_attention(self, embed_dim, cfg):
+        print("TransformerEncoderLayerHCG: build_self_attention")
+        return MultiHeadHCGAttention(embed_dim, cfg.decoder.attention_heads)
+
+    def build_encoder_attention(self, embed_dim, cfg):
+        return MultiHeadHCGAttention(embed_dim, cfg.decoder.attention_heads)
+        # return super().build_encoder_attention(
+        #     embed_dim,
+        #     TransformerConfig.from_namespace(args),
+        # )
+
 
 class FairseqNATDecoder(TransformerDecoder):
     def __init__(self, args, dictionary, embed_tokens, no_encoder_attn=False):
         super().__init__(args, dictionary, embed_tokens, no_encoder_attn)
         self.ensemble_models = None
+
+    def build_self_attention(self, embed_dim, cfg):
+        return MultiHeadHCGAttention(embed_dim, cfg.decoder.attention_heads,)
+
+    def build_decoder_layer(self, cfg, no_encoder_attn=False):
+        layer = transformer_layer.TransformerDecoderLayerBase(cfg, no_encoder_attn)
+        checkpoint = cfg.checkpoint_activations
+        if checkpoint:
+            offload_to_cpu = cfg.offload_activations
+            layer = checkpoint_wrapper(layer, offload_to_cpu=offload_to_cpu)
+        # if we are checkpointing, enforce that FSDP always wraps the
+        # checkpointed layer, regardless of layer size
+        min_params_to_wrap = cfg.min_params_to_wrap if not checkpoint else 0
+        layer = fsdp_wrap(layer, min_num_params=min_params_to_wrap)
+        return layer
