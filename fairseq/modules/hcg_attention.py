@@ -13,12 +13,16 @@ class HCGAttention(nn.Module):
         self.key_weights = nn.Linear(hidden_dim, key_and_query_dim)
         self.value_weights = nn.Linear(hidden_dim, value_dim)
 
-        self.kq_dim_root = math.sqrt(key_and_query_dim)
+        self.kq_dim_inv_root = 1 / math.sqrt(key_and_query_dim)
 
         self.softmax = nn.Softmax(dim=-1)
         self.neg_inf = -1e9
 
         self.attention: torch.Tensor = None
+
+        nn.init.xavier_uniform_(self.query_weights.weight , gain=1 / math.sqrt(2))
+        nn.init.xavier_uniform_(self.key_weights.weight , gain=1 / math.sqrt(2))
+        nn.init.xavier_uniform_(self.value_weights.weight , gain=1 / math.sqrt(2))
 
     def forward(self, q_hidden_inputs: torch.Tensor, k_hidden_inputs: torch.Tensor, v_hidden_inputs: torch.Tensor, attn_mask=None, key_padding_mask=None, save_attention=False):
         """
@@ -53,7 +57,7 @@ class HCGAttention(nn.Module):
         keys_transposed = keys.permute(0, 2, 1) # bs, k_dim, k_seq_len
 
         # print("queries.shape", queries.shape, "keys_transposed.shape", keys_transposed.shape)
-        scaled_kv = torch.matmul(queries, keys_transposed) / self.kq_dim_root # # bs, q_seq_len, k_seq_len
+        scaled_kv = torch.bmm(queries, keys_transposed) * self.kq_dim_inv_root # # bs, q_seq_len, k_seq_len
         assert scaled_kv.size() == torch.Size((batch_size, q_seq_len, k_seq_len))
 
         if attn_mask is not None:
@@ -73,7 +77,7 @@ class HCGAttention(nn.Module):
         if save_attention:
             self.attention = scaled_kv
 
-        result = torch.matmul(scaled_kv, values) # bs, q_seq_len, v_dim
+        result = torch.bmm(scaled_kv, values) # bs, q_seq_len, v_dim
 
         return result.permute((1, 0, 2))
 
