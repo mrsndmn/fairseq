@@ -2,6 +2,7 @@ examples/translation/
 data-stt/
 checkpoints*/
 pip-wheel-metadata/
+*.zip
 
 # JetBrains PyCharm IDE
 .idea/
