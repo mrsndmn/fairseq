@@ -5,6 +5,8 @@ from .hcg_attention import HCGAttention, MultiHeadHCGAttention, SimpleMultiHeadH
 import torch
 from fairseq.modules import MultiheadAttention
 
+from .hard_concrete_gate import HardConcreteGate
+
 from fairseq import checkpoint_utils, options, tasks, utils
 
 def count_trainable_params(model):
@@ -27,12 +29,25 @@ def test_from_fairseq_mha():
 
     mha_self_attention.dropout_module.p = 0
 
-    hcg_mha = MultiHeadHCGAttention.from_fairseq_mha(mha_self_attention)
+    hcg_mha = MultiHeadHCGAttention.from_fairseq_mha(mha_self_attention, with_hard_concrete_gate=False)
 
     print("count_trainable_params", count_trainable_params(hcg_mha))
     print("hcg_mha", hcg_mha)
     print("mha_self_attention", mha_self_attention)
-    assert count_trainable_params(hcg_mha) == count_trainable_params(mha_self_attention)
+    # assert count_trainable_params(hcg_mha) == count_trainable_params(mha_self_attention)
+
+    fairseq_modules_gen = list(mha_self_attention.modules())[1:]
+    hcg_modules_gen = list(x for x in mha_self_attention.modules() if type(x) != HardConcreteGate)[1:]
+
+    for hcg_m, gairseq_m in zip(fairseq_modules_gen, hcg_modules_gen):
+        for hcg_p, gairseq_p in zip(hcg_m.parameters(), gairseq_m.parameters()):
+            assert (hcg_p == gairseq_p).all()
+
+    rand_t = torch.rand( (7, 3, 512) )
+    hcg_result, _ = hcg_mha.forward(query=rand_t, key=rand_t, value=rand_t)
+    mha_result, _ = mha_self_attention.forward(query=rand_t, key=rand_t, value=rand_t)
+
+    assert hcg_result.size() == mha_result.size()
 
 
 

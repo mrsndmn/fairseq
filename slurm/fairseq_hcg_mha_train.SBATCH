@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="fairseq_hcg_mha"
+#SBATCH --job-name="hcg_mha_fairseq"
 #SBATCH --nodes=1
 #SBATCH --time-min=1400
 #SBATCH --cpus-per-task=1

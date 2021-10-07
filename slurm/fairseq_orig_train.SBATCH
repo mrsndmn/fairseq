@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="fairseq_orig_nar"
+#SBATCH --job-name="orig_nar_fairseq"
 #SBATCH --nodes=1
 #SBATCH --time-min=1400
 #SBATCH --cpus-per-task=2
