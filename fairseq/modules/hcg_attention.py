@@ -4,6 +4,7 @@ import torch.nn as nn
 import math
 
 from .hard_concrete_gate import HardConcreteGate
+from fairseq.modules import MultiheadAttention
 
 class HCGAttention(nn.Module):
     def __init__(self, hidden_dim: int, key_and_query_dim: int = 64, value_dim: int = 64):
@@ -106,6 +107,17 @@ class MultiHeadHCGAttention(nn.Module):
         self.hard_concrete_gates = nn.ModuleList(concrete_gates)
 
         self.heads_weights = nn.Linear(num_heads * value_dim, hidden_dim)
+
+    @classmethod
+    def from_fairseq_mha(cls, fairseq_mha: MultiheadAttention, with_hard_concrete_gate=False, hcg_l0_penalty_lambda=0.0):
+
+
+        if not fairseq_mha.qkv_same_dim:
+            raise ValueError("self.qkv_same_dim == False is not supported")
+
+        hcg_mha = cls(hidden_dim=fairseq_mha.embed_dim, num_heads=fairseq_mha.num_heads, with_hard_concrete_gate=with_hard_concrete_gate, hcg_l0_penalty_lambda=0.0)
+
+        return hcg_mha
 
     # todo костыль!
     def _get_input_buffer(self, *args, **kwargs):

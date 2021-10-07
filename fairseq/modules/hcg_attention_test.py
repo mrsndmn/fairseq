@@ -1,8 +1,34 @@
 import pytest
 
-from .hcg_attention import HCGAttention, MultiHeadHCGAttention, SimpleMultiHeadHCGAttention, AddAndNorm
+from .hcg_attention import HCGAttention, MultiHeadHCGAttention, SimpleMultiHeadHCGAttention
 
 import torch
+from fairseq.modules import MultiheadAttention
+
+from fairseq import checkpoint_utils, options, tasks, utils
+
+def count_trainable_params(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+def test_from_fairseq_mha():
+    # todo test id and disable
+    # self.dropout_module
+    # todo test it
+    # self.scaling
+
+    models, model_dict = checkpoint_utils.load_model_ensemble(utils.split_paths( 'checkpoints_nonautoregressive_transformer_orig/checkpoint_best.pt' ))
+    model = models[0]
+    print(model)
+
+    mha_self_attention: MultiheadAttention = model.encoder.layers[0].self_attn
+    assert mha_self_attention.self_attention
+    assert not mha_self_attention.encoder_decoder_attention
+
+    hcg_mha = MultiHeadHCGAttention.from_fairseq_mha(mha_self_attention)
+
+    assert count_trainable_params(hcg_mha) == count_trainable_params(mha_self_attention)
+
+
 
 def test_attention_forward():
     with torch.no_grad():

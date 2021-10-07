@@ -167,28 +167,6 @@ class TransformerEncoderLayerHCG(transformer_layer.TransformerEncoderLayerBase):
         return MultiHeadHCGAttention(embed_dim, cfg.encoder.attention_heads)
 
 
-class FairseqNATEncoderHCG(TransformerEncoder):
-    def __init__(self, args, dictionary, embed_tokens):
-        super().__init__(args, dictionary, embed_tokens)
-        self.ensemble_models = None
-
-    @ensemble_encoder
-    def forward(self, *args, **kwargs):
-        return super().forward(*args, **kwargs)
-
-    def build_encoder_layer(self, cfg):
-        layer = TransformerEncoderLayerHCG(cfg)
-        checkpoint = cfg.checkpoint_activations
-        if checkpoint:
-            offload_to_cpu = cfg.offload_activations
-            layer = checkpoint_wrapper(layer, offload_to_cpu=offload_to_cpu)
-        # if we are checkpointing, enforce that FSDP always wraps the
-        # checkpointed layer, regardless of layer size
-        min_params_to_wrap = cfg.min_params_to_wrap if not checkpoint else 0
-        layer = fsdp_wrap(layer, min_num_params=min_params_to_wrap)
-        return layer
-
-
 class FairseqNATEncoder(TransformerEncoder):
     def __init__(self, args, dictionary, embed_tokens):
         super().__init__(args, dictionary, embed_tokens)
@@ -198,6 +176,8 @@ class FairseqNATEncoder(TransformerEncoder):
     def forward(self, *args, **kwargs):
         return super().forward(*args, **kwargs)
 
+class FairseqNATEncoderHCG(FairseqNATEncoder):
+
     def build_encoder_layer(self, cfg):
         layer = TransformerEncoderLayerHCG(cfg)
         checkpoint = cfg.checkpoint_activations
@@ -210,9 +190,10 @@ class FairseqNATEncoder(TransformerEncoder):
         layer = fsdp_wrap(layer, min_num_params=min_params_to_wrap)
         return layer
 
+
 class TransformerDecoderLayerHCG(transformer_layer.TransformerDecoderLayerBase):
     def build_self_attention(self, embed_dim, cfg, **kwarg):
-        print("TransformerEncoderLayerHCG: build_self_attention")
+        print("TransformerDecoderLayerHCG: build_self_attention")
         return MultiHeadHCGAttention(embed_dim, cfg.decoder.attention_heads)
 
     def build_encoder_attention(self, embed_dim, cfg, **kwarg):

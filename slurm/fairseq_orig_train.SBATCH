@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name="fairseq_hcg_mha"
+#SBATCH --job-name="fairseq_orig_nar"
 #SBATCH --nodes=1
 #SBATCH --time-min=1400
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=2
 #SBATCH --gpus=1
 #SBATCH -C type_a|type_b|type_c
 #SBATCH --mail-user=dyutarasov@edu.hse.ru
@@ -24,12 +24,12 @@ srun nvidia-smi
 # srun pip install -e . --no-index --find-links file:///home/dyutarasov/workspace/fairseq
 srun fairseq-train \
     data-bin/wmt14_en_de_distill \
-    --save-dir checkpoints_nonautoregressive_transformer_hcg \
-    --tensorboard-logdir tensorboard_checkpoints_nonautoregressive_transformer_hcg \
+    --save-dir checkpoints_nonautoregressive_transformer_orig \
+    --tensorboard-logdir tensorboard_checkpoints_nonautoregressive_transformer_orig \
     --ddp-backend=legacy_ddp \
     --task translation_lev \
     --criterion nat_loss \
-    --arch nonautoregressive_transformer_hcg \
+    --arch nonautoregressive_transformer \
     --noise full_mask \
     --share-all-embeddings \
     --optimizer adam --adam-betas '(0.9,0.98)' \
