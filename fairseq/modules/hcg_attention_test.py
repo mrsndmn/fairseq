@@ -18,14 +18,20 @@ def test_from_fairseq_mha():
 
     models, model_dict = checkpoint_utils.load_model_ensemble(utils.split_paths( 'checkpoints_nonautoregressive_transformer_orig/checkpoint_best.pt' ))
     model = models[0]
-    print(model)
+    # print(model)
 
     mha_self_attention: MultiheadAttention = model.encoder.layers[0].self_attn
+
     assert mha_self_attention.self_attention
     assert not mha_self_attention.encoder_decoder_attention
 
+    mha_self_attention.dropout_module.p = 0
+
     hcg_mha = MultiHeadHCGAttention.from_fairseq_mha(mha_self_attention)
 
+    print("count_trainable_params", count_trainable_params(hcg_mha))
+    print("hcg_mha", hcg_mha)
+    print("mha_self_attention", mha_self_attention)
     assert count_trainable_params(hcg_mha) == count_trainable_params(mha_self_attention)
 
 

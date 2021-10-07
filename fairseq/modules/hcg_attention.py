@@ -117,6 +117,10 @@ class MultiHeadHCGAttention(nn.Module):
 
         hcg_mha = cls(hidden_dim=fairseq_mha.embed_dim, num_heads=fairseq_mha.num_heads, with_hard_concrete_gate=with_hard_concrete_gate, hcg_l0_penalty_lambda=0.0)
 
+        head_dim = fairseq_mha.head_dim
+        for i, attention_head in hcg_mha.attention_heads:
+            
+
         return hcg_mha
 
     # todo костыль!
