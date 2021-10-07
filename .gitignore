@@ -3,6 +3,8 @@ data-stt/
 checkpoints*/
 pip-wheel-metadata/
 *.zip
+*.out
+# slurm/*
 
 # JetBrains PyCharm IDE
 .idea/
@@ -39,6 +41,10 @@ wheels/
 
 # Checkpoints
 checkpoints
+
+# Tensorboards
+tensorboard*
+
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
