@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --time-min=1400
 #SBATCH --cpus-per-task=2
-#SBATCH --gpus=1
+#SBATCH --gpus=3
 #SBATCH -C type_a|type_b|type_c
 #SBATCH --mail-user=dyutarasov@edu.hse.ru
 #SBATCH --mail-type=ALL
@@ -43,5 +43,4 @@ srun fairseq-train \
     --fixed-validation-seed 7 \
     --max-tokens 8000 \
     --save-interval-updates 25000 \
-    --max-update 150000 \
-    --tensor
+    --max-update 300000

@@ -23,7 +23,7 @@ srun fairseq-generate \
     data-bin/wmt14_en_de_distill \
     --gen-subset test \
     --task translation_lev \
-    --path checkpoints_nonautoregressive_transformer_hcg/checkpoint_last.pt \
+    --path checkpoints_nonautoregressive_transformer_orig/checkpoint_best.pt \
     --iter-decode-max-iter 9 \
     --iter-decode-eos-penalty 0 \
     --beam 7 --remove-bpe \
