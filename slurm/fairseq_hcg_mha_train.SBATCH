@@ -44,5 +44,5 @@ srun fairseq-train \
     --fixed-validation-seed 7 \
     --max-tokens 8000 \
     --save-interval-updates 25000 \
-    --max-update 150000
+    --max-update 150000 \
     --tensor
