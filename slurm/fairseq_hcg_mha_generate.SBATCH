@@ -21,7 +21,7 @@ srun nvidia-smi
 
 srun fairseq-generate \
     data-bin/wmt14_en_de_distill \
-    --gen-subset test \
+    --gen-subset train \
     --task translation_lev \
     --path checkpoints_nonautoregressive_transformer_hcg/checkpoint_last.pt \
     --iter-decode-max-iter 9 \

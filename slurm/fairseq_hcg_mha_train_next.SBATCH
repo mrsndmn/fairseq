@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --time-min=1400
 #SBATCH --cpus-per-task=2
-#SBATCH --gpus=2
+#SBATCH --gpus=3
 #SBATCH -C type_a|type_b|type_c
 #SBATCH --mail-user=dyutarasov@edu.hse.ru
 #SBATCH --mail-type=ALL
@@ -24,7 +24,7 @@ srun nvidia-smi
 srun fairseq-train \
     data-bin/wmt14_en_de_distill \
     --save-dir checkpoints_nonautoregressive_transformer_hcg \
-    --tensorboard-logdir tensorboard_checkpoints_nonautoregressive_transformer_hcg \
+    --tensorboard-logdir tensorboard_checkpoints_nonautoregressive_transformer_hcg_next \
     --ddp-backend=legacy_ddp \
     --task translation_lev \
     --criterion nat_loss \
