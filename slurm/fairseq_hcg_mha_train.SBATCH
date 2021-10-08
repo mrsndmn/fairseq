@@ -21,7 +21,6 @@ set -o xtrace
 #Executable
 srun nvidia-smi
 
-# srun pip install -e . --no-index --find-links file:///home/dyutarasov/workspace/fairseq
 srun fairseq-train \
     data-bin/wmt14_en_de_distill \
     --save-dir checkpoints_nonautoregressive_transformer_hcg \
