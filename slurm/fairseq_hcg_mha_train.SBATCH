@@ -2,8 +2,8 @@
 #SBATCH --job-name="hcg_mha_fairseq"
 #SBATCH --nodes=1
 #SBATCH --time-min=1400
-#SBATCH --cpus-per-task=1
-#SBATCH --gpus=1
+#SBATCH --cpus-per-task=2
+#SBATCH --gpus=2
 #SBATCH -C type_a|type_b|type_c
 #SBATCH --mail-user=dyutarasov@edu.hse.ru
 #SBATCH --mail-type=ALL

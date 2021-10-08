@@ -162,9 +162,15 @@ class FairseqNATModel(TransformerModel):
 
 
 class TransformerEncoderLayerHCG(transformer_layer.TransformerEncoderLayerBase):
+    def __init__(self, args):
+        self.with_hard_concrete_gate = getattr(args, "with_hard_concrete_gate", False)
+        super().__init__(args)
+
+        return
+
     def build_self_attention(self, embed_dim, cfg):
         print("TransformerEncoderLayerHCG: build_self_attention")
-        return MultiHeadHCGAttention(embed_dim, cfg.encoder.attention_heads)
+        return MultiHeadHCGAttention(embed_dim, cfg.encoder.attention_heads, with_hard_concrete_gate=self.with_hard_concrete_gate)
 
 
 class FairseqNATEncoder(TransformerEncoder):

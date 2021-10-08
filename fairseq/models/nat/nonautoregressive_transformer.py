@@ -51,8 +51,8 @@ class NATransformerModelBase(FairseqNATModel):
     def allow_length_beam(self):
         return True
 
-    @staticmethod
-    def add_args(parser):
+    @classmethod
+    def add_args(cls, parser):
         FairseqNATModel.add_args(parser)
 
         # length prediction
@@ -216,6 +216,20 @@ class NATransformerModel(NATransformerModelBase):
 
 @register_model("nonautoregressive_transformer_hcg")
 class NATransformerModelHCG(NATransformerModelBase):
+
+    @classmethod
+    def add_args(cls, parser):
+        super().add_args(parser)
+
+        parser.add_argument(
+            "--with_hard_concrete_gate",
+            action="store_true",
+            help="Enable or not hard concrete gate",
+        )
+
+        return
+
+
     @classmethod
     def build_decoder(cls, args, tgt_dict, embed_tokens):
         decoder = FairseqNATDecoderHCG(args, tgt_dict, embed_tokens)
@@ -430,8 +444,15 @@ class NATransformerDecoder(FairseqNATDecoder):
 
 class FairseqNATDecoderHCG(NATransformerDecoder):
 
+    def __init__(self, args, dictionary, embed_tokens, no_encoder_attn=False):
+        super().__init__(
+            args, dictionary, embed_tokens, no_encoder_attn=no_encoder_attn
+        )
+
+        self.with_hard_concrete_gate = getattr(args, "with_hard_concrete_gate", False)
+
     def build_self_attention(self, embed_dim, cfg):
-        return MultiHeadHCGAttention(embed_dim, cfg.decoder.attention_heads,)
+        return MultiHeadHCGAttention(embed_dim, cfg.decoder.attention_heads, with_hard_concrete_gate=self.with_hard_concrete_gate)
 
     def build_decoder_layer(self, cfg, no_encoder_attn=False):
         layer = TransformerDecoderLayerHCG(cfg, no_encoder_attn)

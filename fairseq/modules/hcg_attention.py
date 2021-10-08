@@ -32,11 +32,10 @@ class MultiHeadHCGAttention(MultiheadAttention):
 
         super().__init__(*args, **kwargs)
 
-        if self.with_hard_concrete_gate:
-            self.hcg = HardConcreteGate(self.num_heads,
-                                        log_a=hcg_log_a,
-                                        temperature=hcg_temperature,
-                                        adjust_range=hcg_adjust_range,)
+        self.hcg = HardConcreteGate(self.num_heads,
+                                    log_a=hcg_log_a,
+                                    temperature=hcg_temperature,
+                                    adjust_range=hcg_adjust_range,)
 
     @classmethod
     def from_fairseq_mha(cls, fairseq_mha: MultiheadAttention, **kwargs):
