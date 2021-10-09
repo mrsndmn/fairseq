@@ -24,7 +24,7 @@ srun fairseq-generate \
     --gen-subset test \
     --task translation_lev \
     --path checkpoints_nonautoregressive_transformer_hcg/checkpoint_last.pt \
-    --iter-decode-max-iter 9 \
+    --iter-decode-max-iter 0 \
     --iter-decode-eos-penalty 0 \
     --beam 7 --remove-bpe \
     --print-step \
