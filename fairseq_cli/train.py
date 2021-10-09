@@ -284,7 +284,7 @@ def train(
     should_stop = False
     num_updates = trainer.get_num_updates()
 
-    print("with_hard_concrete_gate:", trainer._model.encoder.layers[0].self_attn.with_hard_concrete_gate)
+    # print("with_hard_concrete_gate:", trainer._model.encoder.layers[0].self_attn.with_hard_concrete_gate)
 
     logger.info("Start iterating over samples")
     for i, samples in enumerate(progress):
