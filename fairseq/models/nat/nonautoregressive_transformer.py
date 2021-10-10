@@ -227,6 +227,13 @@ class NATransformerModelHCG(NATransformerModelBase):
             help="Enable or not hard concrete gate",
         )
 
+        parser.add_argument(
+            "--hcg_l0_penalty_lambda",
+            default=0.0,
+            type=float,
+            help="Weight of hcg loss",
+        )
+
         return
 
 
@@ -243,6 +250,49 @@ class NATransformerModelHCG(NATransformerModelBase):
         if getattr(args, "apply_bert_init", False):
             encoder.apply(init_bert_params)
         return encoder
+
+    def forward(
+        self, src_tokens, src_lengths, prev_output_tokens, tgt_tokens, **kwargs
+    ):
+        outputs = super().forward(src_tokens, src_lengths, prev_output_tokens, tgt_tokens, **kwargs)
+
+        if not self.args.with_hard_concrete_gate:
+            return outputs
+
+        hcg_p_opens = []
+
+        # encoder self attention
+        for l in self.encoder.layers:
+            hcg_p_open = l.self_attn.hcg.get_p_open()
+            hcg_p_open = hcg_p_open.unsqueeze(0)
+            assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
+            hcg_p_opens.append(hcg_p_open)
+
+        # decoder self attention
+        for l in self.decoder.layers:
+            hcg_p_open = l.self_attn.hcg.get_p_open()
+            hcg_p_open = hcg_p_open.unsqueeze(0)
+            assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
+            hcg_p_opens.append(hcg_p_open)
+
+        # decoder-encoder attention
+        for l in self.decoder.layers:
+            hcg_p_open = l.encoder_attn.hcg.get_p_open()
+            hcg_p_open = hcg_p_open.unsqueeze(0)
+            assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
+            hcg_p_opens.append(hcg_p_open)
+
+        hcg_p_opens_t = torch.cat(hcg_p_opens, dim=0)
+
+        hcg_loss = hcg_p_opens_t.mean() * self.args.hcg_l0_penalty_lambda
+
+        outputs['hcg'] = {
+            "loss": hcg_loss,
+            "hcg_loss": True,
+        }
+
+        return outputs
+
 
 
 class NATransformerDecoder(FairseqNATDecoder):
