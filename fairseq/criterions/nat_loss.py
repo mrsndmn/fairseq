@@ -98,7 +98,7 @@ class LabelSmoothedDualImitationCriterion(FairseqCriterion):
         tgt_tokens, prev_output_tokens = sample["target"], sample["prev_target"]
 
         outputs = model(src_tokens, src_lengths, prev_output_tokens, tgt_tokens)
-        losses, nll_loss, hcg_loss = [], [], []
+        losses, nll_loss = [], []
 
         for obj in outputs:
             if outputs[obj].get("loss", None) is None:
@@ -121,12 +121,8 @@ class LabelSmoothedDualImitationCriterion(FairseqCriterion):
             if outputs[obj].get("nll_loss", False):
                 nll_loss += [_losses.get("nll_loss", 0.0)]
 
-            if outputs[obj].get("hcg_loss", False):
-                hcg_loss += [_losses.get("loss", 0.0)]
-
         loss = sum(l["loss"] for l in losses)
         nll_loss = sum(l for l in nll_loss) if len(nll_loss) > 0 else loss.new_tensor(0)
-        hcg_loss = sum(l for l in hcg_loss) if len(hcg_loss) > 0 else loss.new_tensor(0)
 
         # NOTE:
         # we don't need to use sample_size as denominator for the gradient
@@ -135,7 +131,6 @@ class LabelSmoothedDualImitationCriterion(FairseqCriterion):
         logging_output = {
             "loss": loss.data,
             "nll_loss": nll_loss.data,
-            "hcg_loss": hcg_loss.data,
             "ntokens": ntokens,
             "nsentences": nsentences,
             "sample_size": sample_size,
@@ -158,16 +153,12 @@ class LabelSmoothedDualImitationCriterion(FairseqCriterion):
         )
         loss = utils.item(sum(log.get("loss", 0) for log in logging_outputs))
         nll_loss = utils.item(sum(log.get("nll_loss", 0) for log in logging_outputs))
-        hcg_loss = utils.item(sum(log.get("hcg_loss", 0) for log in logging_outputs))
 
         metrics.log_scalar(
             "loss", loss / sample_size / math.log(2), sample_size, round=3
         )
         metrics.log_scalar(
             "nll_loss", nll_loss / sample_size / math.log(2), sample_size, round=3
-        )
-        metrics.log_scalar(
-            "hcg_loss", hcg_loss / sample_size / math.log(2), sample_size, round=3
         )
         metrics.log_derived(
             "ppl", lambda meters: utils.get_perplexity(meters["loss"].avg)

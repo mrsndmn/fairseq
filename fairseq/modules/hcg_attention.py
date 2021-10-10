@@ -293,6 +293,7 @@ class MultiHeadHCGAttention(MultiheadAttention):
         # attn ~ [ tgt_len, bsz, embed_dim ]
         if self.with_hard_concrete_gate:
             attn = self.hcg(attn)
+            # print("mha forward log_a.grad", self.hcg.log_a.grad)
 
         attn = self.out_proj(attn)
         attn_weights: Optional[Tensor] = None

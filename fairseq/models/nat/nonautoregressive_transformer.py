@@ -266,6 +266,8 @@ class NATransformerModelHCG(NATransformerModelBase):
             hcg_p_open = l.self_attn.hcg.get_p_open()
             hcg_p_open = hcg_p_open.unsqueeze(0)
             assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
+            # assert hcg_p_open.grad is not None
+
             hcg_p_opens.append(hcg_p_open)
 
         # decoder self attention
@@ -273,6 +275,8 @@ class NATransformerModelHCG(NATransformerModelBase):
             hcg_p_open = l.self_attn.hcg.get_p_open()
             hcg_p_open = hcg_p_open.unsqueeze(0)
             assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
+            # assert hcg_p_open.grad is not None
+
             hcg_p_opens.append(hcg_p_open)
 
         # decoder-encoder attention
@@ -280,15 +284,16 @@ class NATransformerModelHCG(NATransformerModelBase):
             hcg_p_open = l.encoder_attn.hcg.get_p_open()
             hcg_p_open = hcg_p_open.unsqueeze(0)
             assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
+            # assert hcg_p_open.grad is not None
+
             hcg_p_opens.append(hcg_p_open)
 
         hcg_p_opens_t = torch.cat(hcg_p_opens, dim=0)
 
         hcg_loss = hcg_p_opens_t.mean() * self.args.hcg_l0_penalty_lambda
 
-        outputs['hcg'] = {
+        outputs['hcg_loss'] = {
             "loss": hcg_loss,
-            "hcg_loss": True,
         }
 
         return outputs
