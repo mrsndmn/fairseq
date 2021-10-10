@@ -109,8 +109,8 @@ def draw_mha_p_opened(mha_p_opened_by_checkpoint, file_name):
         ax.set_xlim(0, num_heads * step_pixels)
         ax.set_ylim(0, num_layers * step_pixels)
 
-        plt.xticks(np.arange(1, num_heads*step_pixels, step_pixels), np.arange(1, num_heads+1, 1))
-        plt.yticks(np.arange(1, num_layers*step_pixels, step_pixels), np.arange(1, num_layers+1, 1))
+        plt.xticks(np.arange(1, num_heads*step_pixels, step_pixels) + int(step_pixels / 2),  np.arange(1, num_heads+1, 1))
+        plt.yticks(np.arange(1, num_layers*step_pixels, step_pixels) + int(step_pixels / 2), np.arange(1, num_layers+1, 1))
 
         ax.set_ylabel("layers")
         ax.set_xlabel("heads")
