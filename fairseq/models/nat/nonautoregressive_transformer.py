@@ -504,11 +504,6 @@ class FairseqNATDecoderHCG(NATransformerDecoder):
             args, dictionary, embed_tokens, no_encoder_attn=no_encoder_attn
         )
 
-        self.with_hard_concrete_gate = getattr(args, "with_hard_concrete_gate", False)
-
-    def build_self_attention(self, embed_dim, cfg):
-        return MultiHeadHCGAttention(embed_dim, cfg.decoder.attention_heads, with_hard_concrete_gate=self.with_hard_concrete_gate)
-
     def build_decoder_layer(self, cfg, no_encoder_attn=False):
         layer = TransformerDecoderLayerHCG(cfg, no_encoder_attn)
         checkpoint = cfg.checkpoint_activations
