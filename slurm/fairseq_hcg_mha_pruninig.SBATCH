@@ -23,10 +23,10 @@ srun nvidia-smi
 
 srun fairseq-train \
     data-bin/wmt14_en_de_distill \
-    --save-dir checkpoints_nonautoregressive_transformer_hcg_pruning \
+    --save-dir checkpoints_nonautoregressive_transformer_hcg_pruning_lambda_0.1 \
     --with_hard_concrete_gate \
     --hcg_l0_penalty_lambda 0.1 \
-    --tensorboard-logdir tensorboard_checkpoints_nonautoregressive_transformer_hcg_pruning \
+    --tensorboard-logdir tensorboard_checkpoints_nonautoregressive_transformer_hcg_pruning_lambda_0.1 \
     --ddp-backend=legacy_ddp \
     --task translation_lev \
     --criterion nat_loss \
@@ -47,4 +47,4 @@ srun fairseq-train \
     --fixed-validation-seed 7 \
     --max-tokens 16000 \
     --save-interval-updates 25000 \
-    --max-update 300100
+    --max-update 350000
