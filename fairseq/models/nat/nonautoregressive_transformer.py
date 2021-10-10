@@ -265,7 +265,7 @@ class NATransformerModelHCG(NATransformerModelBase):
         for l in self.encoder.layers:
             hcg_p_open = l.self_attn.hcg.get_p_open()
             hcg_p_open = hcg_p_open.unsqueeze(0)
-            assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
+            # assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
             # assert hcg_p_open.grad is not None
 
             hcg_p_opens.append(hcg_p_open)
@@ -274,7 +274,7 @@ class NATransformerModelHCG(NATransformerModelBase):
         for l in self.decoder.layers:
             hcg_p_open = l.self_attn.hcg.get_p_open()
             hcg_p_open = hcg_p_open.unsqueeze(0)
-            assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
+            # assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
             # assert hcg_p_open.grad is not None
 
             hcg_p_opens.append(hcg_p_open)
@@ -283,7 +283,7 @@ class NATransformerModelHCG(NATransformerModelBase):
         for l in self.decoder.layers:
             hcg_p_open = l.encoder_attn.hcg.get_p_open()
             hcg_p_open = hcg_p_open.unsqueeze(0)
-            assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
+            # assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
             # assert hcg_p_open.grad is not None
 
             hcg_p_opens.append(hcg_p_open)
