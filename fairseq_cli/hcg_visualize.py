@@ -3,6 +3,8 @@ import glob
 import re
 import os.path
 
+import matplotlib.ticker as ticker
+import numpy as np
 from tqdm.auto import tqdm
 
 import matplotlib.pyplot as plt
@@ -17,6 +19,7 @@ from fairseq import checkpoint_utils, options, tasks, utils
 
 parser = argparse.ArgumentParser(description='Visualize hard concrete hate weights')
 parser.add_argument('--checkpoints_glob', type=str, help='checkpoint directory path')
+parser.add_argument('--ignore_cached', default=False, action="store_true", help='ignore cached p_opened')
 
 args = parser.parse_args()
 
@@ -49,7 +52,7 @@ for checkpoint in tqdm(checkpoints_sorted, desc="reading_checkpoints"):
 
 
     checkpoint_p_opened = checkpoint + ".mhas_probas.pickle"
-    if os.path.exists(checkpoint_p_opened):
+    if not args.ignore_cached and os.path.exists(checkpoint_p_opened):
         with open(checkpoint_p_opened, "rb") as f:
             encoder_self_attention_p_open_by_layer, decoder_self_attention_p_open_by_layer, decoder_encoder_attention_p_open_by_layer = pickle.load(f)
     else:
@@ -58,15 +61,21 @@ for checkpoint in tqdm(checkpoints_sorted, desc="reading_checkpoints"):
 
         for i, l in enumerate(model.encoder.layers):
             l.self_attn.hcg.eval()
+            if not l.self_attn.with_hard_concrete_gate:
+                print("encoder with_hard_concrete_gate")
             encoder_self_attention_p_open_by_layer.append(l.self_attn.hcg.get_p_open().tolist())
-
 
         for i, l in enumerate(model.decoder.layers):
             l.self_attn.hcg.eval()
+            if not l.self_attn.with_hard_concrete_gate:
+                print("decoder self_attn with_hard_concrete_gate")
+
             decoder_self_attention_p_open_by_layer.append(l.self_attn.hcg.get_p_open().tolist())
 
         for i, l in enumerate(model.decoder.layers):
             l.encoder_attn.hcg.eval()
+            if not l.encoder_attn.with_hard_concrete_gate:
+                print("decoder encoder_attn with_hard_concrete_gate")
             decoder_encoder_attention_p_open_by_layer.append(l.encoder_attn.hcg.get_p_open().tolist())
 
         with open(checkpoint_p_opened, "wb") as f:
@@ -99,6 +108,13 @@ def draw_mha_p_opened(mha_p_opened_by_checkpoint, file_name):
     def init():
         ax.set_xlim(0, num_heads * step_pixels)
         ax.set_ylim(0, num_layers * step_pixels)
+
+        plt.xticks(np.arange(1, num_heads*step_pixels, step_pixels), np.arange(1, num_heads+1, 1))
+        plt.yticks(np.arange(1, num_layers*step_pixels, step_pixels), np.arange(1, num_layers+1, 1))
+
+        ax.set_ylabel("layers")
+        ax.set_xlabel("heads")
+
         return []
 
     def update(layer_p_open):
