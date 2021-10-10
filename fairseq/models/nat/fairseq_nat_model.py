@@ -169,7 +169,7 @@ class TransformerEncoderLayerHCG(transformer_layer.TransformerEncoderLayerBase):
         return
 
     def build_self_attention(self, embed_dim, cfg):
-        print("TransformerEncoderLayerHCG: build_self_attention")
+        # print("TransformerEncoderLayerHCG: build_self_attention")
         return MultiHeadHCGAttention(embed_dim, cfg.encoder.attention_heads, with_hard_concrete_gate=self.with_hard_concrete_gate)
 
 
@@ -199,7 +199,7 @@ class FairseqNATEncoderHCG(FairseqNATEncoder):
 
 class TransformerDecoderLayerHCG(transformer_layer.TransformerDecoderLayerBase):
     def build_self_attention(self, embed_dim, cfg, **kwarg):
-        print("TransformerDecoderLayerHCG: build_self_attention")
+        # print("TransformerDecoderLayerHCG: build_self_attention")
         return MultiHeadHCGAttention(embed_dim, cfg.decoder.attention_heads)
 
     def build_encoder_attention(self, embed_dim, cfg, **kwarg):
