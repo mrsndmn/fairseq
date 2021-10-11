@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --time-min=1400
 #SBATCH --cpus-per-task=2
-#SBATCH --gpus=2
+#SBATCH --gpus=1
 #SBATCH -C type_a|type_b|type_c
 #SBATCH --mail-user=dyutarasov@edu.hse.ru
 #SBATCH --mail-type=ALL
@@ -35,7 +35,7 @@ srun fairseq-train \
     --share-all-embeddings \
     --optimizer adam --adam-betas '(0.9,0.98)' \
     --lr 0.0005 --lr-scheduler inverse_sqrt \
-    --stop-min-lr '8e-05' --warmup-updates 10000 \
+    --stop-min-lr '1e-09' --warmup-updates 10000 \
     --warmup-init-lr '1e-07' --label-smoothing 0.1 \
     --dropout 0.3 --weight-decay 0.01 \
     --decoder-learned-pos \
@@ -45,6 +45,6 @@ srun fairseq-train \
     --apply-bert-init \
     --log-format 'simple' --log-interval 100 \
     --fixed-validation-seed 7 \
-    --max-tokens 8000 \
-    --save-interval-updates 10000 \
-    --max-update 400000
+    --max-tokens 21000 \
+    --save-interval-updates 25000 \
+    --max-update 600000

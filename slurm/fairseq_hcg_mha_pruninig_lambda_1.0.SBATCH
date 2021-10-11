@@ -23,10 +23,10 @@ srun nvidia-smi
 
 srun fairseq-train \
     data-bin/wmt14_en_de_distill \
-    --save-dir checkpoints_nonautoregressive_transformer_hcg_pruning_lambda_0.5 \
+    --save-dir checkpoints_nonautoregressive_transformer_hcg_pruning_lambda_1.0 \
     --with_hard_concrete_gate \
-    --hcg_l0_penalty_lambda 0.5 \
-    --tensorboard-logdir tensorboard_checkpoints_nonautoregressive_transformer_hcg_pruning_lambda_0.5 \
+    --hcg_l0_penalty_lambda 1.0 \
+    --tensorboard-logdir tensorboard_checkpoints_nonautoregressive_transformer_hcg_pruning_lambda_1.0 \
     --ddp-backend=legacy_ddp \
     --task translation_lev \
     --criterion nat_loss \
