@@ -45,6 +45,6 @@ srun fairseq-train \
     --apply-bert-init \
     --log-format 'simple' --log-interval 100 \
     --fixed-validation-seed 7 \
-    --max-tokens 21000 \
+    --max-tokens 18000 \
     --save-interval-updates 25000 \
     --max-update 600000
