@@ -122,6 +122,7 @@ def draw_mha_p_opened(mha_p_opened_by_checkpoint, file_name):
         patches=[]
         for i, layer in enumerate(layer_p_open):
             for j, head in enumerate(layer):
+                patches.append( ax.add_patch( Rectangle(( j * step_pixels , i * step_pixels), step_pixels, step_pixels, color="white") ) )
                 patches.append( ax.add_patch( Rectangle(( j * step_pixels , i * step_pixels), step_pixels, step_pixels, color="black", alpha=1 - head) ) )
 
         return patches
@@ -142,4 +143,8 @@ draw_mha_p_opened(decoder_self_attention_p_open, checkpoints_dir + "/decoder_sel
 
 print("plotting decoder_encoder_attention_p_open")
 draw_mha_p_opened(decoder_encoder_attention_p_open, checkpoints_dir + "/decoder_encoder_attention_p_open.gif")
+
+print(checkpoints_dir + "/encoder_attention_p_open.gif")
+print(checkpoints_dir + "/decoder_self_attention_p_open.gif")
+print(checkpoints_dir + "/decoder_encoder_attention_p_open.gif")
 
