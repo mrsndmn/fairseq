@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="hcg_mha_fairseq"
+#SBATCH --job-name="generate_pruned_0.5"
 #SBATCH --nodes=1
 #SBATCH --time-min=30
 #SBATCH --cpus-per-task=8
