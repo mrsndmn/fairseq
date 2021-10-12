@@ -2,6 +2,7 @@ import argparse
 import glob
 import re
 import os.path
+import sys
 
 import matplotlib.ticker as ticker
 import numpy as np
@@ -20,6 +21,8 @@ from fairseq import checkpoint_utils, options, tasks, utils
 parser = argparse.ArgumentParser(description='Visualize hard concrete hate weights')
 parser.add_argument('--checkpoints_glob', type=str, help='checkpoint directory path')
 parser.add_argument('--ignore_cached', default=False, action="store_true", help='ignore cached p_opened')
+parser.add_argument('--only_count_pruned_heads', default=False, action="store_true", help='exit after counting pruned heads')
+
 
 args = parser.parse_args()
 
@@ -84,6 +87,29 @@ for checkpoint in tqdm(checkpoints_sorted, desc="reading_checkpoints"):
     encoder_attention_p_open.append(encoder_self_attention_p_open_by_layer)
     decoder_self_attention_p_open.append(decoder_self_attention_p_open_by_layer)
     decoder_encoder_attention_p_open.append(decoder_encoder_attention_p_open_by_layer)
+
+
+def count_pruned_heads(p_opens, threshold=0.9):
+    p_opens = np.array(p_opens)
+    p_opens = p_opens[-1, ...]
+    # print((p_opens < threshold))
+    return (p_opens < threshold).sum()
+
+def count_heads(p_opens, threshold=0.9):
+    p_opens = np.array(p_opens)
+    p_opens = p_opens[-1, ...]
+    # print((p_opens < threshold))
+    return p_opens.size
+
+print("count_pruned_heads: encoder_attention         =", count_pruned_heads(encoder_attention_p_open))
+print("       total count: encoder_attention         =", count_heads(encoder_attention_p_open))
+print("count_pruned_heads: decoder_self_attention    =", count_pruned_heads(decoder_self_attention_p_open))
+print("       total count: decoder_self_attention    =", count_heads(decoder_self_attention_p_open))
+print("count_pruned_heads: decoder_encoder_attention =", count_pruned_heads(decoder_encoder_attention_p_open))
+print("       total count: decoder_encoder_attention =", count_heads(decoder_encoder_attention_p_open))
+
+if args.only_count_pruned_heads:
+    sys.exit(0)
 
 def draw_p_opens(p_opens_by_layer):
     for layer_p_opens in p_opens_by_layer:
