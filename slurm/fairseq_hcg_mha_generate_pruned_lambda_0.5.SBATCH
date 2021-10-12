@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name="generate_pruned_0.5"
+#SBATCH --job-name="0.5_gen"
 #SBATCH --nodes=1
 #SBATCH --time-min=30
 #SBATCH --cpus-per-task=8
