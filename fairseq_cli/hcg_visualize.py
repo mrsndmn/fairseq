@@ -92,13 +92,11 @@ for checkpoint in tqdm(checkpoints_sorted, desc="reading_checkpoints"):
 def count_pruned_heads(p_opens, threshold=0.9):
     p_opens = np.array(p_opens)
     p_opens = p_opens[-1, ...]
-    # print((p_opens < threshold))
     return (p_opens < threshold).sum()
 
-def count_heads(p_opens, threshold=0.9):
+def count_heads(p_opens):
     p_opens = np.array(p_opens)
     p_opens = p_opens[-1, ...]
-    # print((p_opens < threshold))
     return p_opens.size
 
 print("count_pruned_heads: encoder_attention         =", count_pruned_heads(encoder_attention_p_open))
