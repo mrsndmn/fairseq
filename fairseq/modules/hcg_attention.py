@@ -37,6 +37,61 @@ class MultiHeadHCGAttention(MultiheadAttention):
                                     temperature=hcg_temperature,
                                     adjust_range=hcg_adjust_range,)
 
+        self.pruned = False
+
+
+    def prune(self, head_open_threshold=0.9):
+
+        # if not self.qkv_same_dim:
+            # raise NotImplementedError("hcg pruning is not implemented only for qkv_same_dim")
+
+        p_open = self.hcg.get_p_open()
+        opened_heads_mask = p_open > head_open_threshold
+
+        num_opened_heads = opened_heads_mask.sum()
+
+        self.pruned = True
+        self.orig_num_heads = self.num_heads
+        self.orig_embed_dim = self.embed_dim
+
+        self.num_heads = num_opened_heads
+        self.embed_dim = self.num_heads * self.head_dim
+
+        self.prune_linear_proj( self.self.k_proj, opened_heads_mask )
+        self.prune_linear_proj( self.self.q_proj, opened_heads_mask )
+        self.prune_linear_proj( self.self.v_proj, opened_heads_mask )
+
+        self.out_proj.out_features = self.embed_dim
+        self.out_proj.in_features = self.embed_dim
+
+        if self.out_proj.bias is not None:
+            self.out_proj.bias = self.out_proj.bias[ opened_heads_mask ]
+
+        self.out_proj.weight = self.out_proj.weight[ opened_heads_mask ]
+        self.out_proj.weight = self.out_proj.weight[ opened_heads_mask.unsqueeze(1) ]
+
+        assert self.out_proj.weight.size() == torch.Size((self.out_proj.out_features, self.out_proj.in_features))
+
+        if self.bias_k is not None:
+            self.bias_k = self.bias_k[ opened_heads_mask ]
+
+        if self.bias_v is not None:
+            self.bias_v = self.bias_v[ opened_heads_mask ]
+
+        return
+
+
+    def prune_linear_proj(self, linear_module: nn.Linear, opened_heads_mask: torch.Tensor):
+
+        linear_module.out_features = self.embed_dim
+
+        if linear_module.bias is not None:
+            linear_module.bias = linear_module.bias[ opened_heads_mask ]
+
+        linear_module.weight = linear_module.weight[ opened_heads_mask ]
+
+        return
+
     @classmethod
     def from_fairseq_mha(cls, fairseq_mha: MultiheadAttention, **kwargs):
         hcg_mha = cls(fairseq_mha.embed_dim, fairseq_mha.num_heads,
@@ -99,6 +154,8 @@ class MultiHeadHCGAttention(MultiheadAttention):
 
         tgt_len, bsz, embed_dim = query.size()
         src_len = tgt_len
+        # todo change query size for pruned mha
+
         assert embed_dim == self.embed_dim, f"query dim {embed_dim} != {self.embed_dim}"
         assert list(query.size()) == [tgt_len, bsz, embed_dim]
         if key is not None:
@@ -157,6 +214,7 @@ class MultiHeadHCGAttention(MultiheadAttention):
                     dim=1,
                 )
 
+        # [ bsz * num_heads, tgt_len, self.head_dim ]
         q = (
             q.contiguous()
             .view(tgt_len, bsz * self.num_heads, self.head_dim)
@@ -272,6 +330,7 @@ class MultiHeadHCGAttention(MultiheadAttention):
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
 
         if before_softmax:
+            # todo restore query size for pruned mha
             return attn_weights, v
 
         attn_weights_float = utils.softmax(
@@ -304,6 +363,8 @@ class MultiHeadHCGAttention(MultiheadAttention):
             if not need_head_weights:
                 # average attention weights over heads
                 attn_weights = attn_weights.mean(dim=0)
+
+        # todo restore query size for pruned mha
 
         return attn, attn_weights
 
