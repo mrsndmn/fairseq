@@ -1,9 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name="hcg_mha_fairseq"
+#SBATCH --job-name="gen_not_pruned"
 #SBATCH --nodes=1
 #SBATCH --time-min=30
-#SBATCH --cpus-per-task=1
-#SBATCH --gpus=1
+#SBATCH --cpus-per-task=8
+#SBATCH --gpus=0
 #SBATCH -C type_a|type_b|type_c
 
 module purge
@@ -17,7 +17,6 @@ set -eo pipefail
 set -o xtrace
 
 #Executable
-srun nvidia-smi
 
 srun fairseq-generate \
     data-bin/wmt14_en_de_distill \

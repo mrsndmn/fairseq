@@ -256,7 +256,7 @@ class NATransformerModelHCG(NATransformerModelBase):
     ):
         outputs = super().forward(src_tokens, src_lengths, prev_output_tokens, tgt_tokens, **kwargs)
 
-        if not self.args.with_hard_concrete_gate:
+        if getattr(self.args, "with_hard_concrete_gate", False):
             return outputs
 
         hcg_p_opens = []
