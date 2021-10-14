@@ -100,11 +100,14 @@ def count_heads(p_opens):
     return p_opens.size
 
 print("count_pruned_heads: encoder_attention         =", count_pruned_heads(encoder_attention_p_open))
-print("       total count: encoder_attention         =", count_heads(encoder_attention_p_open))
 print("count_pruned_heads: decoder_self_attention    =", count_pruned_heads(decoder_self_attention_p_open))
-print("       total count: decoder_self_attention    =", count_heads(decoder_self_attention_p_open))
 print("count_pruned_heads: decoder_encoder_attention =", count_pruned_heads(decoder_encoder_attention_p_open))
+print("       total count: encoder_attention         =", count_heads(encoder_attention_p_open))
+print("       total count: decoder_self_attention    =", count_heads(decoder_self_attention_p_open))
 print("       total count: decoder_encoder_attention =", count_heads(decoder_encoder_attention_p_open))
+print("pruned percent    :                           =", (count_pruned_heads(encoder_attention_p_open) + count_pruned_heads(decoder_self_attention_p_open) + count_pruned_heads(decoder_encoder_attention_p_open)) / (count_heads(encoder_attention_p_open) + count_heads(decoder_self_attention_p_open) + count_heads(decoder_encoder_attention_p_open)) )
+
+
 
 if args.only_count_pruned_heads:
     sys.exit(0)
