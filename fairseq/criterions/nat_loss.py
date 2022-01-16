@@ -6,6 +6,7 @@
 import math
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from fairseq import metrics, utils
 from fairseq.criterions import FairseqCriterion, register_criterion
@@ -21,10 +22,11 @@ class LabelSmoothedDualImitationCriterionConfig(FairseqDataclass):
         default=0.0,
         metadata={"help": "epsilon for label smoothing, 0 means no label smoothing"},
     )
-    hcg_l0_penalty_lambda: float = field(
-        default=0.0,
-        metadata={"help": "weight of hcg loss"},
-    )
+    # todo it seems it could be deleted
+    # hcg_l0_penalty_lambda: float = field(
+    #     default=0.0,
+    #     metadata={"help": "weight of hcg loss"},
+    # )
 
 
 @register_criterion("nat_loss", dataclass=LabelSmoothedDualImitationCriterionConfig)
@@ -182,3 +184,45 @@ class LabelSmoothedDualImitationCriterion(FairseqCriterion):
         to True will improves distributed training speed.
         """
         return True
+
+
+@register_criterion("nat_ctc_loss", dataclass=LabelSmoothedDualImitationCriterionConfig)
+class CtcNatCriterion(LabelSmoothedDualImitationCriterion):
+
+    def __init__(self, task, label_smoothing):
+        super().__init__(task, label_smoothing)
+
+        self.ctc = nn.CTCLoss()
+
+        return
+
+    def _compute_loss(
+        self, outputs, targets, masks=None, label_smoothing=0.0, name="loss", factor=1.0
+    ):
+        """
+        outputs: batch x len x d_model
+        targets: batch x len
+        masks:   batch x len
+
+        policy_logprob: if there is some policy
+            depends on the likelihood score as rewards.
+        """
+
+        nll_loss = torch.tensor(0)
+
+        if masks is not None and not masks.any():
+            loss = nll_loss
+        elif masks is None:
+            return super()._compute_loss(outputs, targets, masks=masks, label_smoothing=label_smoothing, name=name, factor=factor)
+        else:
+            sequences_lengts = masks.sum(axis=-1).type(torch.long)
+            # print(targets[-10:, :])
+            # print(outputs.shape, targets.shape,  sequences_lengts.shape, sequences_lengts.shape)
+            # print("sequences_lengts", sequences_lengts[-10:])
+
+            # todo padding index is not 0 but blank ctc is zero!
+            # todo inf grads
+            loss = self.ctc( outputs.transpose(0, 1), targets,  sequences_lengts, sequences_lengts )
+
+        loss = loss * factor
+        return {"name": name, "loss": loss, "nll_loss": nll_loss, "factor": factor}

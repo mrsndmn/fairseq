@@ -40,7 +40,7 @@ class FairseqCriterion(_Loss):
             ):
                 # we haven't implemented inference for these argument types,
                 # but PRs welcome :)
-                raise NotImplementedError("{} not supported".format(p.kind))
+                raise NotImplementedError("parameter type {} not supported for {} {}".format(p.kind, cls, p))
 
             assert p.kind in {p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY}
 

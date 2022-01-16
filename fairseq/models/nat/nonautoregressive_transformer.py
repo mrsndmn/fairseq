@@ -298,6 +298,11 @@ class NATransformerModelHCG(NATransformerModelBase):
 
         return outputs
 
+@register_model("gu_2020_nonautoregressive_transformer_hcg")
+class Gu2020NATransformerModelHCG(NATransformerModelHCG):
+    def initialize_output_tokens(self, encoder_out, src_tokens):
+        # todo
+        return super().initialize_output_tokens(encoder_out, src_tokens)
 
 
 class NATransformerDecoder(FairseqNATDecoder):
