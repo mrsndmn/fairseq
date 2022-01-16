@@ -20,12 +20,12 @@ from fairseq import checkpoint_utils, options, tasks, utils
 
 parser = argparse.ArgumentParser(description='Visualize hard concrete hate weights')
 parser.add_argument('--checkpoints_glob', type=str, help='checkpoint directory path')
+parser.add_argument('--displaylambda', type=str, default="")
 parser.add_argument('--ignore_cached', default=False, action="store_true", help='ignore cached p_opened')
 parser.add_argument('--only_count_pruned_heads', default=False, action="store_true", help='exit after counting pruned heads')
 
 
 args = parser.parse_args()
-
 
 checkpoints = list(glob.glob(args.checkpoints_glob))
 
@@ -117,7 +117,7 @@ def draw_p_opens(p_opens_by_layer):
         pass
 
 
-def draw_mha_p_opened(mha_p_opened_by_checkpoint, file_name):
+def draw_mha_p_opened(mha_p_opened_by_checkpoint, file_name, title=""):
     layer_p_open = mha_p_opened_by_checkpoint[0]
     first_layer = layer_p_open[0]
     for layer in layer_p_open:
@@ -130,6 +130,8 @@ def draw_mha_p_opened(mha_p_opened_by_checkpoint, file_name):
 
     fig, ax = plt.subplots()
 
+    ax.set_title(title, fontsize=20)
+
     step_pixels = 64
 
     def init():
@@ -139,8 +141,8 @@ def draw_mha_p_opened(mha_p_opened_by_checkpoint, file_name):
         plt.xticks(np.arange(1, num_heads*step_pixels, step_pixels) + int(step_pixels / 2),  np.arange(1, num_heads+1, 1))
         plt.yticks(np.arange(1, num_layers*step_pixels, step_pixels) + int(step_pixels / 2), np.arange(1, num_layers+1, 1))
 
-        ax.set_ylabel("layers")
-        ax.set_xlabel("heads")
+        ax.set_ylabel("layers", fontsize=20)
+        ax.set_xlabel("heads", fontsize=20)
 
         return []
 
@@ -159,19 +161,26 @@ def draw_mha_p_opened(mha_p_opened_by_checkpoint, file_name):
     writergif = animation.PillowWriter(fps=10)
     anim.save(file_name, writer=writergif)
 
+    return fig
+
+
 checkpoints_dir = os.path.dirname(args.checkpoints_glob)
 
 
 print("plotting encoder_attention_p_open")
-draw_mha_p_opened(encoder_attention_p_open, checkpoints_dir + "/encoder_attention_p_open.gif")
+fig = draw_mha_p_opened(encoder_attention_p_open, checkpoints_dir + f"/{args.displaylambda}_encoder_attention_p_open.gif", title=f"Encoder Self-Attention lambda={args.displaylambda}")
+fig.savefig(checkpoints_dir + f"/{args.displaylambda}_encoder_attention_p_open_last.png")
 
 print("plotting decoder_self_attention_p_open")
-draw_mha_p_opened(decoder_self_attention_p_open, checkpoints_dir + "/decoder_self_attention_p_open.gif")
+fig = draw_mha_p_opened(decoder_self_attention_p_open, checkpoints_dir + f"/{args.displaylambda}_decoder_self_attention_p_open.gif", title=f"Decoder Self-Attention lambda={args.displaylambda}")
+fig.savefig(checkpoints_dir + f"/{args.displaylambda}_decoder_self_attention_p_open_last.png")
 
 print("plotting decoder_encoder_attention_p_open")
-draw_mha_p_opened(decoder_encoder_attention_p_open, checkpoints_dir + "/decoder_encoder_attention_p_open.gif")
+fig = draw_mha_p_opened(decoder_encoder_attention_p_open, checkpoints_dir + f"/{args.displaylambda}_decoder_encoder_attention_p_open.gif", title=f"Decoder Encoder Attention lambda={args.displaylambda}")
+fig.savefig(checkpoints_dir + f"/{args.displaylambda}_decoder_encoder_attention_p_open_last.png")
 
-print(checkpoints_dir + "/encoder_attention_p_open.gif")
-print(checkpoints_dir + "/decoder_self_attention_p_open.gif")
-print(checkpoints_dir + "/decoder_encoder_attention_p_open.gif")
+print(checkpoints_dir + f"/{args.displaylambda}_encoder_attention_p_open.gif")
+print(checkpoints_dir + f"/{args.displaylambda}_decoder_self_attention_p_open.gif")
+print(checkpoints_dir + f"/{args.displaylambda}_decoder_encoder_attention_p_open.gif")
+f
 
