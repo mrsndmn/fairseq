@@ -16,13 +16,13 @@ class SoftCopy(nn.Module):
         self.batch_first = batch_first
         self.max_seq_len = max_seq_len
 
-        indicies_abs_diff = ( torch.arange(0, 10).view(-1, 1).repeat(1, 10) - torch.arange(0, 10).view(1, -1).repeat(10, 1) ).abs()
+        indicies_abs_diff = ( torch.arange(0, max_seq_len).view(-1, 1).repeat(1, max_seq_len) - torch.arange(0, max_seq_len).view(1, -1).repeat(max_seq_len, 1) ).abs()
 
         self.register_buffer("indicies_abs_diff", indicies_abs_diff)
 
         self.softmax = nn.Softmax(dim=-1)
 
-        self.tau = nn.Parameter(torch.tensor(1))
+        self.tau = nn.Parameter(torch.tensor(1.))
 
         return
 
@@ -33,10 +33,10 @@ class SoftCopy(nn.Module):
         """
 
 
-        if self.batch_first:
+        if not self.batch_first:
             embeddings = embeddings.transpose(0, 1)
 
-        source_len = embeddings.size(0)
+        source_len = embeddings.size(1)
         if target_len is None:
             target_len = source_len
 
@@ -46,7 +46,14 @@ class SoftCopy(nn.Module):
         # [ target_len, source_len ]
         indicies_diff = self.indicies_abs_diff[:target_len, :source_len]
 
-        # [ target_len, batch_size, embeddings ]
+        print("indicies_diff", indicies_diff.shape)
+        print("embeddings", embeddings.shape)
+        print("sm", self.softmax(indicies_diff / self.tau).shape)
+
+        # [ batch_size, target_len, embeddings ]
         target_embeddings = self.softmax(indicies_diff / self.tau) @ embeddings
+
+        if not self.batch_first:
+            target_embeddings = target_embeddings.transpose(0, 1)
 
         return target_embeddings
