@@ -942,6 +942,10 @@ class CommonEvalConfig(FairseqDataclass):
         default=None, metadata={"help": "path to save eval results (optional)"}
     )
 
+    prune_heads_with_hcg: bool = field(
+        default=False, metadata={"help": "Enable or not pruning for MultiHeadHCGAttention"}
+    )
+
 
 @dataclass
 class EvalLMConfig(FairseqDataclass):

@@ -15,6 +15,8 @@ import sys
 from argparse import Namespace
 from itertools import chain
 
+import argparse
+
 import numpy as np
 import torch
 from fairseq import checkpoint_utils, options, scoring, tasks, utils
@@ -64,6 +66,7 @@ def _main(cfg: DictConfig, output_file):
         stream=output_file,
     )
     logger = logging.getLogger("fairseq_cli.generate")
+
 
     utils.import_user_module(cfg.common)
 
@@ -399,7 +402,16 @@ def _main(cfg: DictConfig, output_file):
 
 
 def cli_main():
-    parser = options.get_generation_parser()
+    parser : argparse.ArgumentParser = options.get_generation_parser()
+
+    # parser.add_argument(
+    #     "--prune-heads-with-hcg",
+    #     default=False,
+    #     action="store_true",
+    #     help="Enable or not pruning for MultiHeadHCGAttention",
+    # )
+
+
     args = options.parse_args_and_arch(parser)
     main(args)
 

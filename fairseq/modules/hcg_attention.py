@@ -74,10 +74,10 @@ class MultiHeadHCGAttention(MultiheadAttention):
         p_open = self.hcg.get_p_open()
         opened_heads_mask = p_open > head_open_threshold
 
-        print("opened_heads_mask", opened_heads_mask)
+        # print("opened_heads_mask", opened_heads_mask)
 
         num_opened_heads = opened_heads_mask.sum()
-        print("num_opened_heads", num_opened_heads)
+        # print("num_opened_heads", num_opened_heads)
 
         self.pruned = True
         self.orig_num_heads = self.num_heads
@@ -110,13 +110,13 @@ class MultiHeadHCGAttention(MultiheadAttention):
         linear_module.out_features = self.embed_dim
         # linear_module.in_features = self.embed_dim
 
-        print("prune linear before:", linear_module.weight.shape)
+        # print("prune linear before:", linear_module.weight.shape)
 
         num_repeats = linear_module.weight.shape[1] // opened_heads_mask.shape[0]
-        print(f"{linear_module.weight.shape[1]} // {opened_heads_mask.shape[0]}")
-        print("num_repeats", num_repeats)
+        # print(f"{linear_module.weight.shape[1]} // {opened_heads_mask.shape[0]}")
+        # print("num_repeats", num_repeats)
         repeated_mask = torch.repeat_interleave(opened_heads_mask, num_repeats)
-        print("repeated_mask", repeated_mask.shape)
+        # print("repeated_mask", repeated_mask.shape)
 
         if linear_module.bias is not None:
             linear_module.bias.data = linear_module.bias[ repeated_mask ]
@@ -125,7 +125,7 @@ class MultiHeadHCGAttention(MultiheadAttention):
         linear_module.weight.data = linear_module.weight[ repeated_mask, : ]
 
 
-        print("prune linear after:", linear_module.weight.shape)
+        # print("prune linear after:", linear_module.weight.shape)
 
         return
 

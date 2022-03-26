@@ -236,6 +236,27 @@ class NATransformerModelHCG(NATransformerModelBase):
 
         return
 
+    def count_params(self):
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
+
+    def prepare_for_inference_(self, cfg):
+        if cfg.common_eval.prune_heads_with_hcg:
+
+            print('gonna trim prunned heads:')
+
+            before_pruned_params = self.count_params()
+            print('before prunning:', before_pruned_params)
+
+            for module in self.modules():
+                if isinstance(module, MultiHeadHCGAttention):
+                    module.prune()
+
+            after_pruning_params = self.count_params()
+            print('after prunning:', after_pruning_params)
+            print(f'num of params reduced to { after_pruning_params / before_pruned_params * 100}')
+
+        return super().prepare_for_inference_(cfg)
+
 
     @classmethod
     def build_decoder(cls, args, tgt_dict, embed_tokens):
