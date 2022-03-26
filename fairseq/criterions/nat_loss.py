@@ -192,7 +192,7 @@ class CtcNatCriterion(LabelSmoothedDualImitationCriterion):
     def __init__(self, task, label_smoothing):
         super().__init__(task, label_smoothing)
 
-        self.ctc = nn.CTCLoss()
+        self.ctc = nn.CTCLoss(blank=1, zero_infinity=True) # todo remove hardcode!!!
 
         return
 
@@ -215,14 +215,15 @@ class CtcNatCriterion(LabelSmoothedDualImitationCriterion):
         elif masks is None:
             return super()._compute_loss(outputs, targets, masks=masks, label_smoothing=label_smoothing, name=name, factor=factor)
         else:
-            sequences_lengts = masks.sum(axis=-1).type(torch.long)
+            target_sequences_lengts = masks.sum(axis=-1).type(torch.long)
+            src_sequences_lengts = torch.clamp(target_sequences_lengts * 1.5, max=targets.size(1)).type(torch.long)
+            # print(outputs.shape, targets.shape,  target_sequences_lengts.shape)
             # print(targets[-10:, :])
-            # print(outputs.shape, targets.shape,  sequences_lengts.shape, sequences_lengts.shape)
-            # print("sequences_lengts", sequences_lengts[-10:])
+            # print("sequences_lengts", target_sequences_lengts[-10:])
 
             # todo padding index is not 0 but blank ctc is zero!
             # todo inf grads
-            loss = self.ctc( outputs.transpose(0, 1), targets,  sequences_lengts, sequences_lengts )
+            loss = self.ctc( outputs.transpose(0, 1), targets,  src_sequences_lengts, target_sequences_lengts )
 
         loss = loss * factor
         return {"name": name, "loss": loss, "nll_loss": nll_loss, "factor": factor}

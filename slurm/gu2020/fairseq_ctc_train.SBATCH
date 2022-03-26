@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --time-min=1400
 #SBATCH --cpus-per-task=2
-#SBATCH --gpus=3
+#SBATCH --gpus=1
 #SBATCH -C type_a|type_b|type_c
 #SBATCH --mail-user=dyutarasov@edu.hse.ru
 #SBATCH --mail-type=ALL
@@ -28,7 +28,7 @@ srun fairseq-train \
     --ddp-backend=legacy_ddp \
     --task translation_lev \
     --criterion nat_ctc_loss \
-    --arch nonautoregressive_transformer \
+    --arch gu_2020_nonautoregressive_transformer_hcg \
     --noise full_mask \
     --share-all-embeddings \
     --optimizer adam --adam-betas '(0.9,0.98)' \

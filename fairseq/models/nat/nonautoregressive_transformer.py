@@ -301,8 +301,41 @@ class NATransformerModelHCG(NATransformerModelBase):
 @register_model("gu_2020_nonautoregressive_transformer_hcg")
 class Gu2020NATransformerModelHCG(NATransformerModelHCG):
     def initialize_output_tokens(self, encoder_out, src_tokens):
-        # todo
-        return super().initialize_output_tokens(encoder_out, src_tokens)
+        # print("encoder_out", encoder_out.shape, "src_tokens", src_tokens.shape)
+        # todo target tokens *3 by src_tokens lenghts
+        # 
+
+        # length prediction
+        length_tgt = self.decoder.forward_length_prediction(
+            self.decoder.forward_length(normalize=True, encoder_out=encoder_out),
+            encoder_out=encoder_out,
+        )
+
+        max_length = length_tgt.clamp_(min=2).max()
+        idx_length = utils.new_arange(src_tokens, max_length)
+
+        initial_output_tokens = src_tokens.new_zeros(
+            src_tokens.size(0), max_length
+        ).fill_(self.pad)
+        initial_output_tokens.masked_fill_(
+            idx_length[None, :] < length_tgt[:, None], self.unk
+        )
+        initial_output_tokens[:, 0] = self.bos
+        initial_output_tokens.scatter_(1, length_tgt[:, None] - 1, self.eos)
+
+        initial_output_scores = initial_output_tokens.new_zeros(
+            *initial_output_tokens.size()
+        ).type_as(encoder_out["encoder_out"][0])
+
+        return DecoderOut(
+            output_tokens=initial_output_tokens,
+            output_scores=initial_output_scores,
+            attn=None,
+            step=0,
+            max_step=0,
+            history=None,
+        )
+
 
 
 class NATransformerDecoder(FairseqNATDecoder):
@@ -569,6 +602,13 @@ def base_architecture(args):
     args.pred_length_offset = getattr(args, "pred_length_offset", False)
     args.length_loss_factor = getattr(args, "length_loss_factor", 0.1)
     args.src_embedding_copy = getattr(args, "src_embedding_copy", False)
+
+
+@register_model_architecture(
+    "gu_2020_nonautoregressive_transformer_hcg", "gu_2020_nonautoregressive_transformer_hcg"
+)
+def gu_2020_nonautoregressive_transformer_hcg(args):
+    base_architecture(args)
 
 
 @register_model_architecture(
