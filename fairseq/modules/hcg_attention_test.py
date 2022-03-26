@@ -1,4 +1,7 @@
+from importlib.metadata import requires
 import pytest
+
+import time
 
 from .hcg_attention import HCGAttention, MultiHeadHCGAttention, SimpleMultiHeadHCGAttention
 
@@ -119,3 +122,101 @@ def test_simple_multi_head_attention():
 
         smha_ouptut = smha.forward(attention_input, mask=mask)
         assert smha_ouptut.size() == attention_input.size()
+
+def _count_trainable_params(model):
+    return sum( p.numel() for p in model.parameters() if p.requires_grad )
+
+def test_prune_hgc_attention():
+    with torch.no_grad():
+        kq_dim = 4
+        v_dim = 8
+        num_heads = 16
+        hidden_dim = 64
+
+        batch_size = 3
+        seq_len = 7
+        attention_input = torch.rand((batch_size, seq_len, hidden_dim))
+
+        mha = MultiHeadHCGAttention(hidden_dim, num_heads=num_heads, with_hard_concrete_gate=True)
+        mha = mha.eval()
+
+        print("mha.out_proj", mha.out_proj)
+
+        mha.hcg.log_a[0] = float("+inf")
+        mha.hcg.log_a[1:] = float("-inf")
+
+        attention, attention_weights = mha.forward(attention_input, key=attention_input, value=attention_input)
+        assert attention.size() == attention_input.size()
+
+        print("attention.shape", attention.shape)
+        print("before pruning:", _count_trainable_params(mha))
+
+        mha.prune()
+
+        print(mha.v_proj)
+        print("mha.v_proj.weight.shape", mha.v_proj.weight.shape)
+        print("mha.v_proj.bias.shape", mha.v_proj.bias.shape)
+
+        print("after pruning:", _count_trainable_params(mha))
+
+        attention_pruned, attention_weights = mha.forward(attention_input, key=attention_input, value=attention_input)
+        assert attention.size() == attention_input.size()
+
+        print(attention_pruned[0, 0, :10])
+        print(attention[0, 0, :10])
+
+        assert (attention_pruned == attention).all()
+
+def test_speedup_pruned_mha():
+    with torch.no_grad():
+        kq_dim = 4
+        v_dim = 8
+        num_heads = 16
+        hidden_dim = 64
+
+        batch_size = 3
+        seq_len = 7
+        attention_input = torch.rand((batch_size, seq_len, hidden_dim))
+
+        mha = MultiHeadHCGAttention(hidden_dim, num_heads=num_heads, with_hard_concrete_gate=True)
+        mha = mha.eval()
+
+        print("mha.out_proj", mha.out_proj)
+
+        mha.hcg.log_a[0] = float("+inf")
+        mha.hcg.log_a[1:] = float("-inf")
+
+        timing_iterations = 10000
+
+        start_not_pruned = time.time()
+        for _ in range(timing_iterations):
+            attention, attention_weights = mha.forward(attention_input, key=attention_input, value=attention_input)
+        not_pruned_duration = time.time() - start_not_pruned
+
+        assert attention.size() == attention_input.size()
+
+        print("attention.shape", attention.shape)
+        print("before pruning:", _count_trainable_params(mha))
+
+        mha.prune()
+
+        print(mha.v_proj)
+        print("mha.v_proj.weight.shape", mha.v_proj.weight.shape)
+        print("mha.v_proj.bias.shape", mha.v_proj.bias.shape)
+
+        print("after pruning:", _count_trainable_params(mha))
+
+        start_pruned = time.time()
+        for _ in range(timing_iterations):
+            attention_pruned, attention_weights = mha.forward(attention_input, key=attention_input, value=attention_input)
+        pruned_duration = time.time() - start_pruned
+
+        print("pruned_duration", pruned_duration)
+        print("not pruned_duration", not_pruned_duration)
+
+        assert attention.size() == attention_input.size()
+
+        print(attention_pruned[0, 0, :10])
+        print(attention[0, 0, :10])
+
+        assert (attention_pruned == attention).all()

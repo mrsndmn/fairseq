@@ -1,3 +1,4 @@
+from turtle import forward
 import torch
 from torch import Tensor, nn
 
@@ -20,6 +21,31 @@ from fairseq.modules.quant_noise import quant_noise
 from torch import Tensor, nn
 from torch.nn import Parameter
 
+
+class LinearRestorePruned(nn.Module):
+
+    def __init__(self, full_linear: nn.Linear, pruned_mask: torch.Tensor):
+        super().__init__()
+
+
+        num_repeats = full_linear.weight.shape[1] // pruned_mask.shape[0]
+        repeated_mask = torch.repeat_interleave(pruned_mask, num_repeats)
+
+        self.in_features = repeated_mask.sum().item()
+        self.out_features = full_linear.out_features
+
+        self.weight = nn.Parameter( full_linear.weight[:, repeated_mask] )
+        self.bias = full_linear.bias # keep bias dim!
+
+    def forward(self, input_tensor):
+        # input_tensor [ seq_len, bs, pruned_dim ]
+
+        input_projection = input_tensor @ self.weight.data.T # [ seq_len, bs, restored_dim ]
+
+        if self.bias is not None:
+            input_projection = self.bias + input_projection
+
+        return input_projection
 
 class MultiHeadHCGAttention(MultiheadAttention):
     def __init__(self, *args, **kwargs):
@@ -48,7 +74,10 @@ class MultiHeadHCGAttention(MultiheadAttention):
         p_open = self.hcg.get_p_open()
         opened_heads_mask = p_open > head_open_threshold
 
+        print("opened_heads_mask", opened_heads_mask)
+
         num_opened_heads = opened_heads_mask.sum()
+        print("num_opened_heads", num_opened_heads)
 
         self.pruned = True
         self.orig_num_heads = self.num_heads
@@ -57,20 +86,15 @@ class MultiHeadHCGAttention(MultiheadAttention):
         self.num_heads = num_opened_heads
         self.embed_dim = self.num_heads * self.head_dim
 
-        self.prune_linear_proj( self.self.k_proj, opened_heads_mask )
-        self.prune_linear_proj( self.self.q_proj, opened_heads_mask )
-        self.prune_linear_proj( self.self.v_proj, opened_heads_mask )
+        self.embed_dim_pruning_mask = opened_heads_mask.repeat_interleave(self.head_dim)
 
-        self.out_proj.out_features = self.embed_dim
-        self.out_proj.in_features = self.embed_dim
+        self.prune_linear_proj( self.k_proj, opened_heads_mask )
+        self.prune_linear_proj( self.q_proj, opened_heads_mask )
+        self.prune_linear_proj( self.v_proj, opened_heads_mask )
 
-        if self.out_proj.bias is not None:
-            self.out_proj.bias = self.out_proj.bias[ opened_heads_mask ]
+        self.out_proj = LinearRestorePruned(self.out_proj, opened_heads_mask)
 
-        self.out_proj.weight = self.out_proj.weight[ opened_heads_mask ]
-        self.out_proj.weight = self.out_proj.weight[ opened_heads_mask.unsqueeze(1) ]
-
-        assert self.out_proj.weight.size() == torch.Size((self.out_proj.out_features, self.out_proj.in_features))
+        assert self.out_proj.weight.size() == torch.Size((self.out_proj.out_features, self.out_proj.in_features)), f"{self.out_proj.weight.size()} != {torch.Size((self.out_proj.out_features, self.out_proj.in_features))}"
 
         if self.bias_k is not None:
             self.bias_k = self.bias_k[ opened_heads_mask ]
@@ -84,11 +108,24 @@ class MultiHeadHCGAttention(MultiheadAttention):
     def prune_linear_proj(self, linear_module: nn.Linear, opened_heads_mask: torch.Tensor):
 
         linear_module.out_features = self.embed_dim
+        # linear_module.in_features = self.embed_dim
+
+        print("prune linear before:", linear_module.weight.shape)
+
+        num_repeats = linear_module.weight.shape[1] // opened_heads_mask.shape[0]
+        print(f"{linear_module.weight.shape[1]} // {opened_heads_mask.shape[0]}")
+        print("num_repeats", num_repeats)
+        repeated_mask = torch.repeat_interleave(opened_heads_mask, num_repeats)
+        print("repeated_mask", repeated_mask.shape)
 
         if linear_module.bias is not None:
-            linear_module.bias = linear_module.bias[ opened_heads_mask ]
+            linear_module.bias.data = linear_module.bias[ repeated_mask ]
 
-        linear_module.weight = linear_module.weight[ opened_heads_mask ]
+        # linear_module.weight.data = linear_module.weight[ :, repeated_mask ]
+        linear_module.weight.data = linear_module.weight[ repeated_mask, : ]
+
+
+        print("prune linear after:", linear_module.weight.shape)
 
         return
 
@@ -152,12 +189,23 @@ class MultiHeadHCGAttention(MultiheadAttention):
 
         is_tpu = query.device.type == "xla"
 
-        tgt_len, bsz, embed_dim = query.size()
-        src_len = tgt_len
-        # todo change query size for pruned mha
+        # if self.pruned:
+        #     query = query[:, :, self.embed_dim_pruning_mask]
+        #     key = key[:, :, self.embed_dim_pruning_mask]
+        #     value = value[:, :, self.embed_dim_pruning_mask]
 
-        assert embed_dim == self.embed_dim, f"query dim {embed_dim} != {self.embed_dim}"
-        assert list(query.size()) == [tgt_len, bsz, embed_dim]
+        tgt_len, bsz, q_embed_dim = query.size()
+        src_len = tgt_len
+
+        if self.pruned:
+            assert q_embed_dim == self.orig_embed_dim, f"query dim {q_embed_dim} != {self.orig_embed_dim}"
+        else:
+            assert q_embed_dim == self.embed_dim, f"query dim {q_embed_dim} != {self.embed_dim}"
+
+        assert list(query.size()) == [tgt_len, bsz, q_embed_dim]
+
+        embed_dim = self.embed_dim
+
         if key is not None:
             src_len, key_bsz, _ = key.size()
             if not torch.jit.is_scripting():
@@ -192,6 +240,10 @@ class MultiHeadHCGAttention(MultiheadAttention):
 
         else:
             assert key is not None and value is not None
+
+            # print("self.q_proj.weight.shape", self.q_proj.weight.shape, "query.shape", query.shape)
+            # print("self.k_proj.weight.shape", self.k_proj.weight.shape, "query.shape", key.shape)
+
             q = self.q_proj(query)
             k = self.k_proj(key)
             v = self.v_proj(value)
@@ -350,7 +402,8 @@ class MultiHeadHCGAttention(MultiheadAttention):
             attn = attn.transpose(0, 1).contiguous().view(tgt_len, bsz, embed_dim)
 
         # attn ~ [ tgt_len, bsz, embed_dim ]
-        if self.with_hard_concrete_gate:
+        if self.with_hard_concrete_gate and not self.pruned:
+            # print("apply hcg!")
             attn = self.hcg(attn)
             # print("mha forward log_a.grad", self.hcg.log_a.grad)
 
