@@ -204,6 +204,9 @@ class MultiHeadHCGAttention(MultiheadAttention):
 
         assert list(query.size()) == [tgt_len, bsz, q_embed_dim]
 
+        if self.num_heads == 0:
+            return torch.zeros_like(query, device=query.device, dtype=query.dtype), None
+
         embed_dim = self.embed_dim
 
         if key is not None:
