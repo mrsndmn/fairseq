@@ -21,6 +21,10 @@ class LabelSmoothedDualImitationCriterionConfig(FairseqDataclass):
         default=0.0,
         metadata={"help": "epsilon for label smoothing, 0 means no label smoothing"},
     )
+    hcg_l0_penalty_lambda: float = field(
+        default=0.0,
+        metadata={"help": "weight of hcg loss"},
+    )
 
 
 @register_criterion("nat_loss", dataclass=LabelSmoothedDualImitationCriterionConfig)
@@ -101,8 +105,8 @@ class LabelSmoothedDualImitationCriterion(FairseqCriterion):
                 _losses = self._compute_loss(
                     outputs[obj].get("out"),
                     outputs[obj].get("tgt"),
-                    outputs[obj].get("mask", None),
-                    outputs[obj].get("ls", 0.0),
+                    masks=outputs[obj].get("mask", None),
+                    label_smoothing=outputs[obj].get("ls", 0.0),
                     name=obj + "-loss",
                     factor=outputs[obj].get("factor", 1.0),
                 )

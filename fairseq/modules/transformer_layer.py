@@ -148,6 +148,7 @@ class TransformerEncoderLayerBase(nn.Module):
             attn_mask=attn_mask,
         )
         x = self.dropout_module(x)
+        # print("x.shape", x.shape, "residual.shape", residual.shape)
         x = self.residual_connection(x, residual)
         if not self.normalize_before:
             x = self.self_attn_layer_norm(x)

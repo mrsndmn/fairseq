@@ -190,7 +190,7 @@ def main(args):
                 input_file,
                 n_seq_tok[0],
                 n_seq_tok[1],
-                100 * sum(replaced.values()) / n_seq_tok[1],
+                100 * sum(replaced.values()) / (n_seq_tok[1] + 1e-6),
                 vocab.unk_word,
             )
         )

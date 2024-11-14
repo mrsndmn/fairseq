@@ -13,6 +13,12 @@ from fairseq.models.transformer import Embedding
 from fairseq.modules.transformer_sentence_encoder import init_bert_params
 
 
+from fairseq.modules.hcg_attention import MultiHeadHCGAttention
+from fairseq.modules.checkpoint_activations import checkpoint_wrapper
+from fairseq.distributed import fsdp_wrap
+from fairseq.models.nat.fairseq_nat_model import TransformerDecoderLayerHCG, FairseqNATEncoderHCG
+
+
 def _mean_pooling(enc_feats, src_masks):
     # enc_feats: T x B x C
     # src_masks: B x T or None
@@ -40,14 +46,13 @@ def _uniform_assignment(src_lens, trg_lens):
     return index_t
 
 
-@register_model("nonautoregressive_transformer")
-class NATransformerModel(FairseqNATModel):
+class NATransformerModelBase(FairseqNATModel):
     @property
     def allow_length_beam(self):
         return True
 
-    @staticmethod
-    def add_args(parser):
+    @classmethod
+    def add_args(cls, parser):
         FairseqNATModel.add_args(parser)
 
         # length prediction
@@ -202,6 +207,97 @@ class NATransformerModel(FairseqNATModel):
         return decoder_out._replace(
             output_tokens=initial_output_tokens, output_scores=initial_output_scores
         )
+
+
+
+@register_model("nonautoregressive_transformer")
+class NATransformerModel(NATransformerModelBase):
+    pass
+
+@register_model("nonautoregressive_transformer_hcg")
+class NATransformerModelHCG(NATransformerModelBase):
+
+    @classmethod
+    def add_args(cls, parser):
+        super().add_args(parser)
+
+        parser.add_argument(
+            "--with_hard_concrete_gate",
+            action="store_true",
+            help="Enable or not hard concrete gate",
+        )
+
+        parser.add_argument(
+            "--hcg_l0_penalty_lambda",
+            default=0.0,
+            type=float,
+            help="Weight of hcg loss",
+        )
+
+        return
+
+
+    @classmethod
+    def build_decoder(cls, args, tgt_dict, embed_tokens):
+        decoder = FairseqNATDecoderHCG(args, tgt_dict, embed_tokens)
+        if getattr(args, "apply_bert_init", False):
+            decoder.apply(init_bert_params)
+        return decoder
+
+    @classmethod
+    def build_encoder(cls, args, src_dict, embed_tokens):
+        encoder = FairseqNATEncoderHCG(args, src_dict, embed_tokens)
+        if getattr(args, "apply_bert_init", False):
+            encoder.apply(init_bert_params)
+        return encoder
+
+    def forward(
+        self, src_tokens, src_lengths, prev_output_tokens, tgt_tokens, **kwargs
+    ):
+        outputs = super().forward(src_tokens, src_lengths, prev_output_tokens, tgt_tokens, **kwargs)
+
+        if getattr(self.args, "with_hard_concrete_gate", False):
+            return outputs
+
+        hcg_p_opens = []
+
+        # encoder self attention
+        for l in self.encoder.layers:
+            hcg_p_open = l.self_attn.hcg.get_p_open()
+            hcg_p_open = hcg_p_open.unsqueeze(0)
+            # assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
+            # assert hcg_p_open.grad is not None
+
+            hcg_p_opens.append(hcg_p_open)
+
+        # decoder self attention
+        for l in self.decoder.layers:
+            hcg_p_open = l.self_attn.hcg.get_p_open()
+            hcg_p_open = hcg_p_open.unsqueeze(0)
+            # assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
+            # assert hcg_p_open.grad is not None
+
+            hcg_p_opens.append(hcg_p_open)
+
+        # decoder-encoder attention
+        for l in self.decoder.layers:
+            hcg_p_open = l.encoder_attn.hcg.get_p_open()
+            hcg_p_open = hcg_p_open.unsqueeze(0)
+            # assert hcg_p_open.requires_grad, 'encoder_mha_l0_penalty.requires_grad'
+            # assert hcg_p_open.grad is not None
+
+            hcg_p_opens.append(hcg_p_open)
+
+        hcg_p_opens_t = torch.cat(hcg_p_opens, dim=0)
+
+        hcg_loss = hcg_p_opens_t.mean() * self.args.hcg_l0_penalty_lambda
+
+        outputs['hcg_loss'] = {
+            "loss": hcg_loss,
+        }
+
+        return outputs
+
 
 
 class NATransformerDecoder(FairseqNATDecoder):
@@ -401,6 +497,27 @@ class NATransformerDecoder(FairseqNATDecoder):
         return length_tgt
 
 
+class FairseqNATDecoderHCG(NATransformerDecoder):
+
+    def __init__(self, args, dictionary, embed_tokens, no_encoder_attn=False):
+        super().__init__(
+            args, dictionary, embed_tokens, no_encoder_attn=no_encoder_attn
+        )
+
+    def build_decoder_layer(self, cfg, no_encoder_attn=False):
+        layer = TransformerDecoderLayerHCG(cfg, no_encoder_attn)
+        checkpoint = cfg.checkpoint_activations
+        if checkpoint:
+            offload_to_cpu = cfg.offload_activations
+            layer = checkpoint_wrapper(layer, offload_to_cpu=offload_to_cpu)
+        # if we are checkpointing, enforce that FSDP always wraps the
+        # checkpointed layer, regardless of layer size
+        min_params_to_wrap = cfg.min_params_to_wrap if not checkpoint else 0
+        layer = fsdp_wrap(layer, min_num_params=min_params_to_wrap)
+        return layer
+
+
+
 @register_model_architecture(
     "nonautoregressive_transformer", "nonautoregressive_transformer"
 )
@@ -448,6 +565,12 @@ def base_architecture(args):
     args.length_loss_factor = getattr(args, "length_loss_factor", 0.1)
     args.src_embedding_copy = getattr(args, "src_embedding_copy", False)
 
+
+@register_model_architecture(
+    "nonautoregressive_transformer_hcg", "nonautoregressive_transformer_hcg"
+)
+def base_architecture_hcg(args):
+    base_architecture(args)
 
 @register_model_architecture(
     "nonautoregressive_transformer", "nonautoregressive_transformer_wmt_en_de"
